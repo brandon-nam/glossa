@@ -1,8 +1,10 @@
-module trade-bot/backend
+module web-scraper/backend
 
 go 1.24.0
 
 require golang.org/x/net v0.44.0
+
+require github.com/joho/godotenv v1.5.1 // indirect
 
 require (
 	github.com/PuerkitoBio/goquery v1.10.3 // indirect
@@ -16,6 +18,7 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/kennygrant/sanitize v1.2.4 // indirect
 	github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d // indirect
+	github.com/sashabaranov/go-openai v1.41.2
 	github.com/temoto/robotstxt v1.1.2 // indirect
 	golang.org/x/text v0.29.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
