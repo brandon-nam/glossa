@@ -1,4 +1,4 @@
-package scraper
+package model
 
 // Bill represents the scraped lawmaking bill
 type Bill struct {

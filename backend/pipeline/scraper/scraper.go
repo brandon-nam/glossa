@@ -3,12 +3,13 @@ package scraper
 import (
 	"regexp"
 	"strings"
+	"web-scraper/backend/pipeline/model"
 
 	"github.com/gocolly/colly"
 )
 
 // ScrapeBills returns a channel of Bills as they are found
-func ScrapeBills(startURL string, out chan<- Bill)  {
+func ScrapeBills(startURL string, out chan<- model.Bill) {
 
 	c := colly.NewCollector(
 		colly.Async(true),
@@ -28,7 +29,7 @@ func ScrapeBills(startURL string, out chan<- Bill)  {
 	// Extract bill info
 	c.OnHTML("tr", func(e *colly.HTMLElement) {
 		thText := strings.TrimSpace(e.ChildText("th"))
-		var bill Bill
+		var bill model.Bill
 
 		switch {
 		case strings.Contains(thText, "의안명"):
