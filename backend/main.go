@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"web-scraper/backend/pipeline"
 	"web-scraper/backend/pipeline/handlers"
+	"web-scraper/backend/pipeline/handlers/AI"
 	"web-scraper/backend/pipeline/handlers/scraper"
 	"web-scraper/backend/pipeline/handlers/writer"
 
@@ -20,18 +22,18 @@ func scrapeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 2. Pipeline with GPT
-	// apiKey := os.Getenv("OPENAI_API_KEY")
-	// if apiKey == "" {
-	// 	http.Error(w, "Missing OPENAI_API_KEY", http.StatusInternalServerError)
-	// 	return
-	// }
+	apiKey := os.Getenv("OPENAI_API_KEY")
+	if apiKey == "" {
+		http.Error(w, "Missing OPENAI_API_KEY", http.StatusInternalServerError)
+		return
+	}
 
 	p := &pipeline.Pipeline{}
 	scraperStage := scraper.Scraper{}
-	// aiStage := AI.NewAgent(apiKey)
+	aiStage := AI.NewAgent(apiKey)
 	jsonSink := &writer.JSONSink{Writer: w}
 
-	p.RunPipeline(scraperStage, []handlers.Transformer{}, jsonSink)
+	p.RunPipeline(scraperStage, []handlers.Transformer{aiStage}, jsonSink)
 }
 
 func main() {
