@@ -2,15 +2,15 @@ package pipeline
 
 import (
 	"log"
+	"web-scraper/backend/model"
 	"web-scraper/backend/pipeline/handlers"
-	"web-scraper/backend/pipeline/model"
 )
 
 // Pipeline with channels
 type Pipeline struct{}
 
 // RunPipeline starts processing: scrapeChan -> GPT -> resultChan
-func (p *Pipeline) RunPipeline(source handlers.Source, transformers []handlers.Transformer, sink handlers.Sink) {
+func (p *Pipeline) RunPipeline(source handlers.Source, transformers []handlers.Transformer, sink []handlers.Sink) {
 	first := make(chan model.Bill)
 	prev := first
 	log.Println("[Pipeline] Starting pipeline")
@@ -25,6 +25,10 @@ func (p *Pipeline) RunPipeline(source handlers.Source, transformers []handlers.T
 	}
 
 	// 3. Send final channel to sink
-	sink.Consume(prev)
+
+	for _, sink := range sink {
+		go sink.Consume(prev) // careful: might need a Tee channel so each sink sees all data
+	}
+
 	log.Println("[Pipeline] Exit pipeline")
 }

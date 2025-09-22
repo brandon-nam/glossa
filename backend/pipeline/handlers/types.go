@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"web-scraper/backend/pipeline/model"
+	"web-scraper/backend/model"
 )
 
 type Source interface {
@@ -9,7 +9,7 @@ type Source interface {
 }
 
 type Transformer interface {
-    Transform(in <-chan model.Bill, out chan<- model.Bill)
+	Transform(in <-chan model.Bill, out chan<- model.Bill)
 }
 
 type Sink interface {

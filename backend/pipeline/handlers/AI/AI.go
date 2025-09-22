@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 	"time"
-	"web-scraper/backend/pipeline/model"
+	"web-scraper/backend/model"
 
 	"github.com/sashabaranov/go-openai"
 )

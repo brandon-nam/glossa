@@ -1,19 +1,23 @@
-package writer
+package JSON
 
 import (
 	"encoding/json"
 	"log"
 	"net/http"
 
-	"web-scraper/backend/pipeline/model"
+	"web-scraper/backend/model"
 )
 
 type JSONSink struct {
-	Writer http.ResponseWriter
+	writer http.ResponseWriter
+}
+
+func NewJSONSink(w http.ResponseWriter) *JSONSink {
+	return &JSONSink{writer: w}
 }
 
 func (s *JSONSink) Consume(in <-chan model.Bill) {
-	w := s.Writer
+	w := s.writer
 	w.Header().Set("Content-Type", "application/json")
 	enc := json.NewEncoder(w)
 	w.Write([]byte("[")) // open JSON array

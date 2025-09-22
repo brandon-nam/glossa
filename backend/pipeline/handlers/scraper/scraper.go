@@ -2,8 +2,9 @@ package scraper
 
 import (
 	"log"
+	"strconv"
 	"strings"
-	"web-scraper/backend/pipeline/model"
+	"web-scraper/backend/model"
 
 	"github.com/gocolly/colly"
 )
@@ -21,48 +22,94 @@ func (s Scraper) Run(out chan<- model.Bill) {
 func (s Scraper) ScrapeBills(startURL string, out chan<- model.Bill) {
 
 	log.Println("[Scraper] Initializing Colly collector")
-	c := colly.NewCollector(
+	detailCollector := colly.NewCollector(
 		colly.Async(true),
 		colly.AllowedDomains("opinion.lawmaking.go.kr"),
 	)
 
-	// Follow detail pages
-	c.OnHTML("a.mxW100", func(e *colly.HTMLElement) {
-		href := e.Attr("href")
-		if href != "" {
-			detailURL := e.Request.AbsoluteURL(href) // makes it absolute
-			log.Printf("[Scraper] Visiting detail page: %s\n", detailURL)
-			if err := e.Request.Visit(detailURL); err != nil {
-				log.Printf("[Scraper] Error visiting detail page %s: %v\n", detailURL, err)
+	detailCollector.Limit(&colly.LimitRule{Parallelism: 3})
+
+	// Channel for partial bills from list page
+	listCh := make(chan *model.Bill, 100)
+
+	go func() {
+		for bill := range listCh {
+			if bill.DetailURL != "" {
+				// Creating context for this specific bill
+				log.Println("[Scraper] Visiting detail url: ", bill.DetailURL)
+				ctx := colly.NewContext()
+				ctx.Put("bill", bill)
+				detailCollector.Request("GET", bill.DetailURL, nil, ctx, nil)
+			} else {
+				// If no detail URL, send directly to out
+				out <- *bill
 			}
 		}
+		detailCollector.Wait()
+		close(out) // signal that all full bills are done
+	}()
+
+	// Detail page callback
+	detailCollector.OnHTML("tr", func(e *colly.HTMLElement) {
+		bill := e.Request.Ctx.GetAny("bill").(*model.Bill) // can ensure that this bill is the one that needs to be populated
+
+		// Populate additional fields from detail page
+		bill.MainText = strings.TrimSpace(e.ChildText("td"))
 	})
 
-	// Extract bill info
-	c.OnHTML("tr", func(e *colly.HTMLElement) {
-		thText := strings.TrimSpace(e.ChildText("th"))
+	detailCollector.OnScraped(func(r *colly.Response) {
+		bill := r.Ctx.GetAny("bill").(*model.Bill)
+		out <- *bill
+	})
+
+	// Start list page collector
+	listCollector := colly.NewCollector(
+		colly.Async(true),
+		colly.AllowedDomains("opinion.lawmaking.go.kr"),
+	)
+	listCollector.Limit(&colly.LimitRule{Parallelism: 3})
+
+	// Extract partial bill info and detail URL
+	listCollector.OnHTML("tr", func(e *colly.HTMLElement) {
 		var bill model.Bill
 
-		switch {
-		case strings.Contains(thText, "의안명"):
-			bill.Name = strings.TrimSpace(e.ChildText("td span"))
-		case strings.Contains(thText, "발의정보"):
-			bill.Proposers = strings.TrimSpace(e.ChildText("td"))
-		case strings.Contains(thText, "주요내용"):
-			bill.MainText = strings.TrimSpace(e.ChildText("td"))
+		// Extract '의안명' (Bill Name)
+		bill.Name = strings.TrimSpace(e.ChildText("td[data-th='의안명'] a"))
+
+		// Extract '제안자' (Proposer Info)
+		bill.Proposers = strings.TrimSpace(e.ChildText("td[data-th='제안자(제안일자)']"))
+
+		// Extract '상임위원회' (Department)
+		bill.Department = strings.TrimSpace(e.ChildText("td[data-th='상임위원회(소관부처)]"))
+
+		// Extract '국회현황(추진일자)'
+		bill.ParliamentaryStatus = strings.TrimSpace(e.ChildText("td[data-th='국회현황(추진일자)']"))
+
+		// Extract '의결현황(의결일자)'
+		bill.ResolutionStatus = strings.TrimSpace(e.ChildText("td[data-th='의결현황(의결일자)']"))
+
+		// Extract '의안번호'
+		bill.BillId, _ = strconv.Atoi(strings.TrimSpace(e.ChildText("td[data-th='의안번호 (대안번호)']")))
+
+		// Extract detail URL
+		href := e.ChildAttr("a.mxW100", "href")
+		if href != "" {
+			bill.DetailURL = e.Request.AbsoluteURL(href)
 		}
 
+		// Send partial bill to channel
 		if bill.Name != "" || bill.Proposers != "" || bill.MainText != "" {
-			log.Printf("[Scraper] Extracted bill: %+v\n", bill)
-			out <- bill
+			listCh <- &bill
 		}
 	})
 
-	log.Printf("[Scraper] Visiting start URL: %s", startURL)
-	if err := c.Visit(startURL); err != nil {
-		log.Printf("[Scraper] Error visiting start URL %s: %v", startURL, err)
+	// Visit list page
+	if err := listCollector.Visit(startURL); err != nil {
+		log.Printf("[ListCollector] Error visiting %s: %v", startURL, err)
 	}
-	c.Wait() // wait for all async requests to finish
-	log.Println("[Scraper] Finished scraping")
-	close(out)
+
+	listCollector.Wait()
+	close(listCh) // signal no more partial bills
+
+	log.Println("[Scraper] Run finished")
 }
