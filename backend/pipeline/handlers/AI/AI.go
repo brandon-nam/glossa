@@ -15,9 +15,9 @@ type AIStage struct {
 }
 
 // NewPipeline initializes GPT client
-func NewAgent(apiKey string) *AIStage {
+func NewAgent(aiClient *openai.Client) *AIStage {
 	return &AIStage{
-		client: openai.NewClient(apiKey),
+		client: aiClient,
 	}
 }
 

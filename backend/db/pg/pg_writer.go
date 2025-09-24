@@ -39,24 +39,38 @@ func (d *PGWriter) InsertBill(ctx context.Context, bill model.Bill) (int, error)
 }
 
 // GetBill retrieves a single bill record by its ID.
-func (d *PGWriter) GetBill(ctx context.Context, id int) (model.Bill, error) {
+func (d *PGWriter) GetBill(ctx context.Context, billId int) (model.Bill, error) {
 	var bill model.Bill
 	err := d.conn.QueryRow(
 		ctx,
-		`SELECT id, name, proposers, main_text, summary, categories FROM bills WHERE id = $1`,
-		id,
+		`SELECT id, name, proposers, department, parliamentary_status, resolution_status, main_text, summary, categories FROM assembly_bill WHERE bill_id = $1`,
+		billId,
 	).Scan(
 		&bill.Id,
 		&bill.Name,
 		&bill.Proposers,
+		&bill.Department,
+		&bill.ParliamentaryStatus,
+		&bill.ResolutionStatus,
 		&bill.MainText,
 		&bill.Summary,
 		&bill.Categories,
 	)
 	if err != nil {
-		return model.Bill{}, fmt.Errorf("failed to get bill with id %d: %w", id, err)
+		return model.Bill{}, fmt.Errorf("failed to get bill with id %d: %w", billId, err)
 	}
 	return bill, nil
+}
+
+func (d *PGWriter) GetLatestBill(ctx context.Context) (model.Bill, error) {
+	var bill model.Bill
+	err := d.conn.QueryRow(ctx,
+		`SELECT bill_id
+		FROM bills
+		ORDER BY bill_id DESC
+		LIMIT 1`,
+	).Scan(&bill.BillId)
+	return bill, err
 }
 
 // UpdateBill updates an existing bill record in the database.

@@ -6,10 +6,12 @@ import (
 	"strings"
 	"web-scraper/backend/model"
 
-	"github.com/gocolly/colly"
+	"github.com/gocolly/colly/v2"
 )
 
-type Scraper struct{}
+type Scraper struct {
+	StopAtId int
+}
 
 func (s Scraper) Run(out chan<- model.Bill) {
 	log.Println("[Scraper] Starting Run")
@@ -67,11 +69,19 @@ func (s Scraper) ScrapeBills(startURL string, out chan<- model.Bill) {
 		colly.Async(true),
 		colly.AllowedDomains("opinion.lawmaking.go.kr"),
 	)
-	listCollector.Limit(&colly.LimitRule{Parallelism: 3})
+	listCollector.Limit(&colly.LimitRule{Parallelism: 1})
 
 	// Extract partial bill info and detail URL
 	listCollector.OnHTML("tr", func(e *colly.HTMLElement) {
 		var bill model.Bill
+
+		// Extract '의안번호'(Bill ID)
+		bill.BillId, _ = strconv.Atoi(strings.TrimSpace(e.ChildText("td[data-th='의안번호 (대안번호)']")))
+
+		if bill.BillId <= s.StopAtId {
+			log.Printf("[Scraper] Reached stop ID %d, stopping scraper.", s.StopAtId)
+			return
+		}
 
 		// Extract '의안명' (Bill Name)
 		bill.Name = strings.TrimSpace(e.ChildText("td[data-th='의안명'] a"))
@@ -87,9 +97,6 @@ func (s Scraper) ScrapeBills(startURL string, out chan<- model.Bill) {
 
 		// Extract '의결현황(의결일자)'
 		bill.ResolutionStatus = strings.TrimSpace(e.ChildText("td[data-th='의결현황(의결일자)']"))
-
-		// Extract '의안번호'
-		bill.BillId, _ = strconv.Atoi(strings.TrimSpace(e.ChildText("td[data-th='의안번호 (대안번호)']")))
 
 		// Extract detail URL
 		href := e.ChildAttr("a.mxW100", "href")
