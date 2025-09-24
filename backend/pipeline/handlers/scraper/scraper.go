@@ -64,6 +64,8 @@ func (s Scraper) ScrapeBills(startURL string, out chan<- model.Bill) {
 		out <- *bill
 	})
 
+	stopReached := false
+
 	// Start list page collector
 	listCollector := colly.NewCollector(
 		colly.Async(true),
@@ -80,6 +82,7 @@ func (s Scraper) ScrapeBills(startURL string, out chan<- model.Bill) {
 
 		if bill.BillId <= s.StopAtId {
 			log.Printf("[Scraper] Reached stop ID %d, stopping scraper.", s.StopAtId)
+			stopReached = true
 			return
 		}
 
@@ -110,12 +113,24 @@ func (s Scraper) ScrapeBills(startURL string, out chan<- model.Bill) {
 		}
 	})
 
-	// Visit list page
-	if err := listCollector.Visit(startURL); err != nil {
-		log.Printf("[ListCollector] Error visiting %s: %v", startURL, err)
+	pageNum := 1
+
+	for {
+		// Visit list page
+		if err := listCollector.Visit(startURL + "?pageIndex=" + strconv.Itoa(pageNum)); err != nil {
+			log.Printf("[ListCollector] Error visiting %s: %v", startURL, err)
+			break
+		}
+
+		listCollector.Wait()
+
+		// Check if we reached the stop ID
+		if stopReached {
+			log.Printf("[ListCollector] Stop ID reached, stopping page scrape.")
+			break
+		}
 	}
 
-	listCollector.Wait()
 	close(listCh) // signal no more partial bills
 
 	log.Println("[Scraper] Run finished")
