@@ -13,7 +13,6 @@ import (
 	"web-scraper/backend/pipeline/handlers"
 	"web-scraper/backend/pipeline/handlers/scraper"
 	"web-scraper/backend/pipeline/handlers/sink/DB"
-	"web-scraper/backend/pipeline/handlers/sink/JSON"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
@@ -24,19 +23,12 @@ import (
 type App struct {
 	db       db.DB
 	aiClient *openai.Client
-	cron     cron.Cron
 }
 
-func (app *App) runPipeline(w http.ResponseWriter, r *http.Request) {
-	page := r.URL.Query().Get("page")
-	if page == "" {
-		page = "1"
-	}
-
-	// 2. Pipeline with GPT
+func (app *App) runPipeline() {
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
-		http.Error(w, "Missing OPENAI_API_KEY", http.StatusInternalServerError)
+		http.Error("Missing OPENAI_API_KEY")
 		return
 	}
 
@@ -48,14 +40,13 @@ func (app *App) runPipeline(w http.ResponseWriter, r *http.Request) {
 
 	scraperStage := scraper.Scraper{StopAtId: stopAtId}
 	// aiStage := AI.NewAgent(app.aiClient)
-	jsonSink := JSON.NewJSONSink(w)
 	dbSink := DB.NewDBSink(app.db)
 
-	p.RunPipeline(scraperStage, []handlers.Transformer{}, []handlers.Sink{jsonSink, dbSink})
+	p.RunPipeline(scraperStage, []handlers.Transformer{}, []handlers.Sink{dbSink})
 }
 
 func (app *App) scrapeHandler(w http.ResponseWriter, r *http.Request) {
-	app.runPipeline(w, r)
+	app.runPipeline()
 }
 
 func (app *App) getLatestBill() (int, error) {
@@ -77,11 +68,11 @@ func (app *App) getLatestBillHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "%d", billId)
 }
 
-// // Cron job: runs pipeline with DB sink only
-// func (app *App) cronJob() {
-// 	fmt.Println("⏰ Cron job triggered")
-// 	app.runPipeline(nil, false)
-// }
+// Cron job: runs pipeline with DB sink only
+func (app *App) cronJob() {
+	fmt.Println("⏰ Cron job triggered")
+	app.runPipeline()
+}
 
 func main() {
 	// load env
@@ -111,24 +102,21 @@ func main() {
 	aiClient := openai.NewClient(openAiApiKey)
 
 	// pass in required dependencies
-	app := &App{db: p, aiClient: aiClient, cron: cron.Cron{}}
+	app := &App{db: p, aiClient: aiClient}
 
 	if err != nil {
 		log.Fatalf("Unable to create connection pool: %v\n", err)
 	}
 
+	c := cron.New()
+	_, _ = c.AddFunc("@every 6h", app.cronJob)
+	c.Start()
+	defer c.Stop()
+
 	// Set up the HTTP server and register the handler.
 	// Pass the application instance to the handler.
 	http.HandleFunc("/get-latest-bill", app.getLatestBillHandler)
 	http.HandleFunc("/scrape", app.scrapeHandler)
-
-	// schedule cron job (e.g., every 1 minute)
-	// _, err = app.cron.AddFunc("@every 1m", app.cronJob)
-	// if err != nil {
-	// 	log.Fatalf("Failed to schedule cron job: %v", err)
-	// }
-	// app.cron.Start()
-	// defer app.cron.Stop()
 
 	fmt.Println("🚀 Server running on http://localhost:8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))

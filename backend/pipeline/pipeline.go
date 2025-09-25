@@ -27,7 +27,7 @@ func (p *Pipeline) RunPipeline(source handlers.Source, transformers []handlers.T
 	// 3. Send final channel to sink
 
 	for _, sink := range sink {
-		go sink.Consume(prev) // careful: might need a Tee channel so each sink sees all data
+		go sink.Consume(prev)
 	}
 
 	log.Println("[Pipeline] Exit pipeline")
