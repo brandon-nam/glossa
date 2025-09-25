@@ -28,7 +28,7 @@ type App struct {
 func (app *App) runPipeline() {
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
-		http.Error("Missing OPENAI_API_KEY")
+		log.Fatal("Missing OPENAI_API_KEY")
 		return
 	}
 

@@ -23,14 +23,17 @@ func (d *PGWriter) InsertBill(ctx context.Context, bill model.Bill) (int, error)
 	var id int
 	err := d.conn.QueryRow(
 		ctx,
-		`INSERT INTO bills (name, proposers, main_text, summary, categories, detail_url, bill_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+		`INSERT INTO assembly_bill (bill_id, name, proposers, department, parliamentary_status, resolution_status, main_text, summary, categories, detail_url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
+		bill.BillId,
 		bill.Name,
 		bill.Proposers,
+		bill.Department,
+		bill.ParliamentaryStatus,
+		bill.ResolutionStatus,
 		bill.MainText,
 		bill.Summary,
 		bill.Categories,
 		bill.DetailURL,
-		bill.BillId,
 	).Scan(&id)
 	if err != nil {
 		return 0, fmt.Errorf("failed to insert bill: %w", err)
@@ -66,7 +69,7 @@ func (d *PGWriter) GetLatestBill(ctx context.Context) (model.Bill, error) {
 	var bill model.Bill
 	err := d.conn.QueryRow(ctx,
 		`SELECT bill_id
-		FROM bills
+		FROM assembly_bill
 		ORDER BY bill_id DESC
 		LIMIT 1`,
 	).Scan(&bill.BillId)
