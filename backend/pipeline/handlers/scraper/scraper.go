@@ -92,11 +92,23 @@ func (s Scraper) ScrapeBills(startURL string, out chan<- model.Bill) {
 		// Extract '제안자' (Proposer Info)
 		bill.Proposers = strings.TrimSpace(e.ChildText("td[data-th='제안자(제안일자)']"))
 
+		proposersCleaned := strings.ReplaceAll(bill.Proposers, "\t", "")
+		proposersCleaned = strings.ReplaceAll(proposersCleaned, "\n", "")
+		proposersCleaned = strings.TrimSpace(proposersCleaned)
+
+		bill.Proposers = proposersCleaned
+
 		// Extract '상임위원회' (Department)
 		bill.Department = strings.TrimSpace(e.ChildText("td[data-th='상임위원회(소관부처)]"))
 
 		// Extract '국회현황(추진일자)'
 		bill.ParliamentaryStatus = strings.TrimSpace(e.ChildText("td[data-th='국회현황(추진일자)']"))
+
+		parliamentaryStatusCleaned := strings.ReplaceAll(bill.ParliamentaryStatus, "\t", "")
+		parliamentaryStatusCleaned = strings.ReplaceAll(parliamentaryStatusCleaned, "\n", "")
+		parliamentaryStatusCleaned = strings.TrimSpace(parliamentaryStatusCleaned)
+
+		bill.ParliamentaryStatus = parliamentaryStatusCleaned
 
 		// Extract '의결현황(의결일자)'
 		bill.ResolutionStatus = strings.TrimSpace(e.ChildText("td[data-th='의결현황(의결일자)']"))

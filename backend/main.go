@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -45,10 +46,6 @@ func (app *App) runPipeline() {
 	p.RunPipeline(scraperStage, []handlers.Transformer{}, []handlers.Sink{dbSink})
 }
 
-func (app *App) scrapeHandler(w http.ResponseWriter, r *http.Request) {
-	app.runPipeline()
-}
-
 func (app *App) getLatestBill() (int, error) {
 	latestbill, err := app.db.GetLatestBill(context.Background())
 	if err != nil {
@@ -66,6 +63,18 @@ func (app *App) getLatestBillHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fmt.Fprintf(w, "%d", billId)
+}
+
+func (app *App) getBillsHandler(w http.ResponseWriter, r *http.Request) {
+	bills, err := app.db.GetBills(context.Background())
+	if err != nil {
+		http.Error(w, "Failed to get bills", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(bills); err != nil {
+		http.Error(w, "Failed to encode bills to JSON", http.StatusInternalServerError)
+	}
 }
 
 // Cron job: runs pipeline with DB sink only
@@ -109,14 +118,14 @@ func main() {
 	}
 
 	c := cron.New()
-	_, _ = c.AddFunc("@every 6h", app.cronJob)
+	_, _ = c.AddFunc("@every 10s", app.cronJob)
 	c.Start()
 	defer c.Stop()
 
 	// Set up the HTTP server and register the handler.
 	// Pass the application instance to the handler.
 	http.HandleFunc("/get-latest-bill", app.getLatestBillHandler)
-	http.HandleFunc("/scrape", app.scrapeHandler)
+	http.HandleFunc("/view", app.getBillsHandler)
 
 	fmt.Println("🚀 Server running on http://localhost:8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))

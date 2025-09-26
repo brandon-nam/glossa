@@ -41,6 +41,43 @@ func (d *PGWriter) InsertBill(ctx context.Context, bill model.Bill) (int, error)
 	return id, nil
 }
 
+// GetBills retrieves all bill records
+func (d *PGWriter) GetBills(ctx context.Context) ([]model.Bill, error) {
+	var bills []model.Bill
+	rows, err := d.conn.Query(
+		ctx,
+		`SELECT bill_id, name, proposers, department, parliamentary_status, resolution_status, main_text, summary, categories FROM assembly_bill`,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get bills: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var bill model.Bill
+		if err := rows.Scan(
+			&bill.BillId,
+			&bill.Name,
+			&bill.Proposers,
+			&bill.Department,
+			&bill.ParliamentaryStatus,
+			&bill.ResolutionStatus,
+			&bill.MainText,
+			&bill.Summary,
+			&bill.Categories,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan bill row: %w", err)
+		}
+		bills = append(bills, bill)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration failed: %w", err)
+	}
+
+	return bills, nil
+}
+
 // GetBill retrieves a single bill record by its ID.
 func (d *PGWriter) GetBill(ctx context.Context, billId int) (model.Bill, error) {
 	var bill model.Bill
