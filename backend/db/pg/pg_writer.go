@@ -46,7 +46,7 @@ func (d *PGWriter) GetBills(ctx context.Context) ([]model.Bill, error) {
 	var bills []model.Bill
 	rows, err := d.conn.Query(
 		ctx,
-		`SELECT bill_id, name, proposers, department, parliamentary_status, resolution_status, main_text, summary, categories FROM assembly_bill`,
+		`SELECT bill_id, name, proposers, department, parliamentary_status, resolution_status, main_text, summary, categories, detail_url FROM assembly_bill`,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get bills: %w", err)
@@ -65,6 +65,7 @@ func (d *PGWriter) GetBills(ctx context.Context) ([]model.Bill, error) {
 			&bill.MainText,
 			&bill.Summary,
 			&bill.Categories,
+			&bill.DetailURL,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan bill row: %w", err)
 		}
