@@ -7,6 +7,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
 
 	"web-scraper/backend/db"
 	"web-scraper/backend/db/pg"
@@ -77,6 +79,35 @@ func (app *App) getBillsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (app *App) getBillHandler(w http.ResponseWriter, r *http.Request) {
+	pathParts := strings.Split(r.URL.Path, "/")
+	if len(pathParts) < 3 || pathParts[2] == "" {
+		http.Error(w, "Bad request: Bill ID not provided", http.StatusBadRequest)
+		return
+	}
+	billIDStr := pathParts[2]
+
+	billID, err := strconv.Atoi(billIDStr)
+	if err != nil {
+		http.Error(w, "Invalid bill ID format", http.StatusBadRequest)
+		return
+	}
+
+	bill, err := app.db.GetBill(context.Background(), billID)
+	if err != nil {
+		fmt.Printf("Error getting bill from database: %v\n", err)
+		http.Error(w, "Failed to retrieve bill", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if err := json.NewEncoder(w).Encode(bill); err != nil {
+		fmt.Printf("Error encoding bill to JSON: %v\n", err)
+		http.Error(w, "Failed to encode bill to JSON", http.StatusInternalServerError)
+	}
+}
+
 // Cron job: runs pipeline with DB sink only
 func (app *App) cronJob() {
 	fmt.Println("⏰ Cron job triggered")
@@ -118,7 +149,7 @@ func main() {
 	}
 
 	c := cron.New()
-	_, _ = c.AddFunc("@every 10s", app.cronJob)
+	_, _ = c.AddFunc("@every 6h", app.cronJob)
 	c.Start()
 	defer c.Stop()
 
@@ -126,6 +157,7 @@ func main() {
 	// Pass the application instance to the handler.
 	http.HandleFunc("/get-latest-bill", app.getLatestBillHandler)
 	http.HandleFunc("/view", app.getBillsHandler)
+	http.HandleFunc("/bills/", app.getBillHandler)
 
 	fmt.Println("🚀 Server running on http://localhost:8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))

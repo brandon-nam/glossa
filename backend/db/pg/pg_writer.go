@@ -84,7 +84,7 @@ func (d *PGWriter) GetBill(ctx context.Context, billId int) (model.Bill, error) 
 	var bill model.Bill
 	err := d.conn.QueryRow(
 		ctx,
-		`SELECT id, name, proposers, department, parliamentary_status, resolution_status, main_text, summary, categories FROM assembly_bill WHERE bill_id = $1`,
+		`SELECT id, name, proposers, department, parliamentary_status, resolution_status, main_text, summary, categories, detail_url FROM assembly_bill WHERE bill_id = $1`,
 		billId,
 	).Scan(
 		&bill.Id,
@@ -96,6 +96,7 @@ func (d *PGWriter) GetBill(ctx context.Context, billId int) (model.Bill, error) 
 		&bill.MainText,
 		&bill.Summary,
 		&bill.Categories,
+		&bill.DetailURL,
 	)
 	if err != nil {
 		return model.Bill{}, fmt.Errorf("failed to get bill with id %d: %w", billId, err)
