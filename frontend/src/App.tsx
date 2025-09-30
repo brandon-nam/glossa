@@ -7,8 +7,8 @@ function App() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar01 className="w-full" />
-      <main className="flex-1">
+      <Navbar01 className="w-full " />
+      <main className="flex-1 px-4 md:px-6">
         <Example />
       </main>
     </div>
